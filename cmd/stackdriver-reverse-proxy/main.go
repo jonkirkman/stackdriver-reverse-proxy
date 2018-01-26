@@ -26,6 +26,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
@@ -43,6 +44,9 @@ var (
 	tlsKey    string
 	traceFrac float64
 
+	rawLabels string
+	labels    map[string]string
+
 	monitorHTTPOff bool
 	monitorPeriod  string
 
@@ -57,7 +61,8 @@ For example, to start at localhost:6996 to proxy requests to localhost:6060,
 Options:
   -http           hostname:port to start the proxy server, by default localhost:6996.
   -target         hostname:port where the app server is running.
-  -project        Google Cloud Platform project ID if running outside of GCP.
+	-project        Google Cloud Platform project ID if running outside of GCP.
+	-labels         Labels to add to each trace as key1=val1,key2=val2
 
 Tracing options:
   -trace-fraction    Tracing sampling fraction, between 0 and 1.0.
@@ -66,7 +71,11 @@ Tracing options:
 
 HTTPS options:
   -tls-cert TLS cert file to start an HTTPS proxy.
-  -tls-key  TLS key file to start an HTTPS proxy.
+	-tls-key  TLS key file to start an HTTPS proxy.
+	
+Bonus! Useful labels:
+	- g.co/gae/app/module
+	- g.co/gae/app/module_version
 `
 
 func main() {
@@ -83,6 +92,7 @@ func main() {
 	flag.StringVar(&tlsKey, "tls-key", "", "TLS key file to start an HTTPS proxy")
 	flag.BoolVar(&monitorHTTPOff, "monitor-http-off", false, "send monitor reports to stackdriver Monitoring")
 	flag.StringVar(&monitorPeriod, "monitor-period", "1m", "the period for stackdriver Monitoring")
+	flag.StringVar(&rawLabels, "labels", "", "labels to include on each trace")
 	flag.Parse()
 
 	if target == "" {
@@ -105,6 +115,18 @@ func main() {
 	url, err := url.Parse(target)
 	if err != nil {
 		log.Fatalf("Cannot URL parse -target: %v", err)
+	}
+
+	if rawLabels != "" {
+		labelPairs := strings.Split(rawLabels, ",")
+		for _, lp := range labelPairs {
+			keyVal := strings.Split(lp, "=")
+			if len(keyVal) == 2 {
+				labels[keyVal[0]] = keyVal[1]
+			} else {
+				log.Fatalf("Cannot parse labels")
+			}
+		}
 	}
 
 	var metricsReporter *sproxy.MetricsReporter
@@ -151,6 +173,11 @@ type transport struct {
 
 func (t *transport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	s := t.Trace.SpanFromRequest(req)
+
+	for name, value := range labels {
+		s.SetLabel(name, value)
+	}
+
 	defer s.Finish()
 
 	req.Header.Set("X-Cloud-Trace-Context", s.Header())
