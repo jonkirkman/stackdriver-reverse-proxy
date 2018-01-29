@@ -61,8 +61,8 @@ For example, to start at localhost:6996 to proxy requests to localhost:6060,
 Options:
   -http           hostname:port to start the proxy server, by default localhost:6996.
   -target         hostname:port where the app server is running.
-	-project        Google Cloud Platform project ID if running outside of GCP.
-	-labels         Labels to add to each trace as key1=val1,key2=val2
+  -project        Google Cloud Platform project ID if running outside of GCP.
+  -labels         Labels to add to each trace as key1=val1,key2=val2
 
 Tracing options:
   -trace-fraction    Tracing sampling fraction, between 0 and 1.0.
@@ -71,11 +71,11 @@ Tracing options:
 
 HTTPS options:
   -tls-cert TLS cert file to start an HTTPS proxy.
-	-tls-key  TLS key file to start an HTTPS proxy.
+  -tls-key  TLS key file to start an HTTPS proxy.
 	
 Bonus! Useful labels:
-	- g.co/gae/app/module
-	- g.co/gae/app/module_version
+  - g.co/gae/app/module
+  - g.co/gae/app/module_version
 `
 
 func main() {
@@ -118,6 +118,7 @@ func main() {
 	}
 
 	if rawLabels != "" {
+		labels = make(map[string]string)
 		labelPairs := strings.Split(rawLabels, ",")
 		for _, lp := range labelPairs {
 			keyVal := strings.Split(lp, "=")
